@@ -160,4 +160,39 @@ with st.form("survey_form"):
 if submit_button and model is not None:
     X_raw = np.array([
         age, sex, fma_19z3, fma_04z1, smf_01z1, sma_01z1, sma_36z1, sma_37z1, 
-        sma_08z1, sma_11z2, dra_01z1, drb_01z3, drb_03z1, pha_04z1, pha_07z1,
+        sma_08z1, sma_11z2, dra_01z1, drb_01z3, drb_03z1, pha_04z1, pha_07z1, 
+        phb_01z1, pha_19z1, nua_01z2, oba_01z1, obb_01z1, hya_04z1, dia_04z1, 
+        osa_04z1, enb_01z1, enb_03z1, sob_01z1, soa_01z1, soa_06z2, sod_02z3, 
+        sma_03z1, Monthly_Income, BMI, Avg_Sleep
+    ])
+    
+    X_scaled = (X_raw - SCALER_MEAN) / SCALER_SCALE
+    
+    with torch.no_grad():
+        inputs = torch.FloatTensor(X_scaled).unsqueeze(0).to(device)
+        probs = F.softmax(model(inputs), dim=1).cpu().numpy()[0]
+    
+    OPTIMAL_THRESHOLD = 0.3757
+    prob_high_risk = probs[2]
+    
+    if prob_high_risk >= OPTIMAL_THRESHOLD:
+        final_pred = 2  # 위험군
+    else:
+        final_pred = np.argmax(probs[:2])  # 정상(0) or 경도(1)
+
+    st.divider()
+    st.subheader("📊 AI 스크리닝 결과")
+    
+    if final_pred == 0:
+        st.success("🟢 **정상 (Normal)** : 현재 안정적인 심리 상태를 유지하고 있습니다.")
+    elif final_pred == 1:
+        st.warning("🟡 **경도 (Mild)** : 가벼운 스트레스나 우울감이 관찰됩니다. 휴식이 필요합니다.")
+    elif final_pred == 2:
+        st.error(f"🔴 **위험군 (High Risk)** : 잠재적 우울증 위험이 감지되었습니다. (위험 확률: {prob_high_risk:.1%}) 전문 상담을 권장합니다.")
+        
+    st.markdown("**클래스별 세부 예측 확률**")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("정상 확률", f"{probs[0]:.1%}")
+    col2.metric("경도 확률", f"{probs[1]:.1%}")
+    col3.metric("위험군 확률", f"{probs[2]:.1%}")
+    st.caption(f"*적용된 보수적 스크리닝 임계값: {OPTIMAL_THRESHOLD}*")
